@@ -1,9 +1,11 @@
-import numpy as np
-from numpy.linalg import norm
-import matplotlib.pyplot as plt
 from typing import Optional
-import cvxpy as cp
 
+import cvxpy as cp
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from numpy.linalg import norm
 
 # TODO: move solvers to a separate script.
 
@@ -208,3 +210,17 @@ if __name__ == '__main__':
     fig.savefig('./out/noisy_SDP.png', bbox_inches='tight')
     print('noisy_SDP', np.sum((X - X_hat_noisy_SDP) ** 2))
 
+
+    solver_dict = {'SOCP': SOCP, 'SDP': SDP, 'noisy_SDP': noisy_SDP}
+
+    # TODO: refactor this.
+    solver_performance_list = list()
+    for solver_name, solver in solver_dict.items():
+        for threshold in np.linspace(0.1, 3, 10):
+            Nx, Na = calculate_distance(A, X, threshold)
+            X_hat = solver(A, Nx, num_sensors, dim)
+            mse = np.mean((X - X_hat) ** 2)
+            solver_performance_list.append({'solver_name': solver_name, 'threshold': threshold, 'mse': mse})
+
+    performance = pd.DataFrame(solver_performance_list)
+    sns.plot(x='threshold', y='mse', hue='solver_name', data=performance)
