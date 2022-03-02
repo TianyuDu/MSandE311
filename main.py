@@ -1,5 +1,6 @@
 from typing import Optional
 
+import torch
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,15 +74,28 @@ def LS(A: np.ndarray, Nx: dict, Na: dict, num_sensors: int, dim: int=2):
     for (i, j), d in Nx.items():
         objective_func += cp.atoms.square(cp.atoms.norm2(X_var[i, :] - X_var[j, :])**2 - d)
 
-    b = 0
     for (k, j), d in Na.items():
-        b += (cp.atoms.norm2(A[k, :] - X_var[j, :])**2 - d)
-
-    objective_func += cp.atoms.square(b)
+        objective_func += cp.atoms.square(cp.atoms.norm2(A[k, :] - X_var[j, :])**2 - d)
 
     objective = cp.Minimize(objective_func)
     prob = cp.Problem(objective, [])
     result = prob.solve()
+
+
+def LS_torch(A: np.ndarray, Nx: dict, Na: dict, num_sensors: int, dim: int=2):
+    # TODO: Fix this.
+    X_var = torch.Tensor((num_sensors, dim))
+    objective_func = torch.scalar_tensor(0.0)
+    for (i, j), d in Nx.items():
+        objective_func += cp.atoms.square(cp.atoms.norm2(X_var[i, :] - X_var[j, :])**2 - d)
+
+    for (k, j), d in Na.items():
+        objective_func += cp.atoms.square(cp.atoms.norm2(A[k, :] - X_var[j, :])**2 - d)
+
+    objective = cp.Minimize(objective_func)
+    prob = cp.Problem(objective, [])
+    result = prob.solve()
+
 
 
 def noisy_SDP(A: np.ndarray, Nx: dict, Na: dict, num_sensors: int, dim: int=2):
@@ -184,14 +198,26 @@ if __name__ == '__main__':
     dim = 2
 
     A, X = simulate_anchor_and_sensor(num_anchors, num_sensors, dim)
+    A = np.array([[-1, -1], [0, 1], [1 ,-1]])
     print(f'{A.shape=:}, {X.shape=:}')
     fig, ax = plot(A, X)
 
 
     # TODO: experiment with different level of threshold.
-    Nx, Na = calculate_distance(A, X, 1.0)
+    Nx, Na = calculate_distance(A, X, 1)
     # Nx, Na = calculate_distance(A, X, np.inf)
     print(f'{len(Nx)=:}, {len(Na)=:}')
+
+    # optionally add noise.
+    for key, val in Nx.items():
+        multiplier = np.random.uniform(0.99, 1.01)
+        # Nx[key] += (np.sqrt(Nx[key]) + np.random.randn() * 0.001) ** 2
+        Nx[key] *= multiplier
+
+    for key, val in Na.items():
+        # Na[key] += (np.sqrt(Na[key]) + np.random.randn() * 0.001) ** 2
+        multiplier = np.random.uniform(0.99, 1.01)
+        Na[key] *= multiplier
 
     X_hat_SOCP = SOCP(A, Nx, Na, num_sensors, dim)
     fig, ax = plot(A, X, X_hat_SOCP)
