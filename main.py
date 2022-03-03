@@ -173,8 +173,11 @@ def steepest_descent_with_projection(A: np.ndarray, X: np.ndarray, Nx: dict, Na:
     Zk = Z_init
     delta = 1E9
     epoch = 0
+    max_epochs = 100000
 
     while delta > tol:
+        if epoch > max_epochs:
+            break
         X_before = Zk[-n:, :d]
         error_before = np.mean((X - X_before) ** 2)
 
